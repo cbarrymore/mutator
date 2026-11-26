@@ -95,7 +95,8 @@ def symlink(link: Path, target: Path) -> None:
     link.parent.mkdir(parents=True, exist_ok=True)
     if link.is_symlink() or link.exists():
         link.unlink()
-    link.symlink_to(target.resolve())
+    # Windows needs to know a directory link is one.
+    link.symlink_to(target.resolve(), target_is_directory=target.is_dir())
 
 
 def delete_tree(path: Path, attempts: int = 20, sleep=time.sleep) -> None:

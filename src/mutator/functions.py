@@ -50,6 +50,23 @@ def _swift_private(header: str) -> bool:
     return re.search(r"\b(?:fileprivate|private)\b", header) is not None
 
 
+# A string argument may hold brackets, as in `[Route("api/[controller]")]`.
+_CSHARP_ATTRIBUTES = re.compile(r'^(?:\s*\[(?:"[^"]*"|[^\]"])*\])*')
+
+
+def _csharp_private(header: str) -> bool:
+    """A member with no access modifier is private, as C# defaults it in a class.
+
+    shortcut: an interface member or an explicit interface implementation has no
+    modifier either and is reported private; read the parent node if that matters.
+    """
+
+    declaration = re.split(r"[({]|=>", _CSHARP_ATTRIBUTES.sub("", header), maxsplit=1)[0]
+    if re.search(r"\bprivate\b", declaration):
+        return True
+    return re.search(r"\b(?:public|protected|internal)\b", declaration) is None
+
+
 def is_private(language: str, name: str, source: str, start: int, end: int) -> bool:
     """True when uml-viewer should treat the operation as private."""
 
@@ -68,6 +85,8 @@ def is_private(language: str, name: str, source: str, start: int, end: int) -> b
         return _typescript_private(name, header)
     if language == "swift":
         return _swift_private(header)
+    if language == "csharp":
+        return _csharp_private(header)
     return False
 
 

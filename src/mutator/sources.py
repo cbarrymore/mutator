@@ -15,6 +15,9 @@ Swift adds its own names. A directory component that ends with ``Tests``
 (``Tests``, ``AppTests``) is a test target at any depth, and so is a file
 named ``*Tests.swift``. ``.build``, ``.swiftpm``, and ``DerivedData`` are
 crapper SKIP_DIRS.
+
+C# test projects are named ``*.Test`` or ``*.Tests`` (``Foo.UnitTests``) at any
+depth, crapper's rule. ``obj`` and ``.vs`` are crapper SKIP_DIRS.
 """
 
 from __future__ import annotations
@@ -46,6 +49,10 @@ def _swift_test_relative(relative: Path) -> bool:
     return any(part.endswith("Tests") for part in relative.parts[:-1])
 
 
+def _target_test(relative: Path, crapper) -> bool:
+    return _swift_test_relative(relative) or crapper.discover._csharp_test(relative)
+
+
 def _relative_to(path: Path, root: Path) -> Path | None:
     try:
         return path.resolve().relative_to(root.resolve())
@@ -63,7 +70,7 @@ def is_mutable_source(path: Path, root: Path, crapper) -> bool:
         return False
     if is_test_path(relative, set(crapper.discover.TEST_DIRS)):
         return False
-    if _swift_test_relative(relative):
+    if _target_test(relative, crapper):
         return False
     return not crapper.discover.is_test_file(path.name)
 
@@ -74,7 +81,7 @@ def is_skipped_test(path: Path, root: Path, crapper) -> bool:
     relative = _relative_to(path, root)
     if relative is not None and is_test_path(relative, set(crapper.discover.TEST_DIRS)):
         return True
-    if relative is not None and _swift_test_relative(relative):
+    if relative is not None and _target_test(relative, crapper):
         return True
     return crapper.discover.is_test_file(path.name)
 

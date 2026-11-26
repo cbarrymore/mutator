@@ -64,6 +64,25 @@ def _prefer_worker_sources(cwd: Path, environment: dict) -> None:
     environment["PYTHONPATH"] = os.pathsep.join(entries)
 
 
+def _private_dotnet_output(cwd: Path, environment: dict) -> None:
+    """MSBuild reads ArtifactsPath from the environment and moves every bin and obj there.
+
+    A linked project directory would otherwise build into the real tree, shared
+    by every worker.
+    """
+
+    worker = _worker_home(cwd)
+    if worker is not None:
+        environment["ArtifactsPath"] = str(worker / "target" / "dotnet")
+
+
+def _kill_tree(process: subprocess.Popen) -> None:
+    if os.name == "nt":
+        subprocess.run(["taskkill", "/F", "/T", "/PID", str(process.pid)], capture_output=True)
+        return
+    os.killpg(process.pid, signal.SIGKILL)
+
+
 def display_command(command: Command) -> str:
     """A shell-looking rendering. A list is quoted so it can be pasted."""
 
@@ -90,6 +109,7 @@ class CommandRunner:
         environment = os.environ.copy()
         environment["PYTHONDONTWRITEBYTECODE"] = "1"
         _prefer_worker_sources(cwd, environment)
+        _private_dotnet_output(cwd, environment)
         try:
             process = subprocess.Popen(
                 command,
@@ -99,6 +119,7 @@ class CommandRunner:
                 stderr=subprocess.STDOUT,
                 start_new_session=True,
                 text=True,
+                errors="replace",
                 env=environment,
             )
         except OSError as exc:
@@ -109,7 +130,7 @@ class CommandRunner:
             code = process.returncode if process.returncode is not None else 1
             timed_out = False
         except subprocess.TimeoutExpired:
-            os.killpg(process.pid, signal.SIGKILL)
+            _kill_tree(process)
             output, _err = process.communicate()
             code = 124
             timed_out = True
@@ -279,6 +300,15 @@ def _swift_plan(
     return _xcode_command(project, scheme, destination), project.parent
 
 
+def _csharp_plan(root: Path, source: Path) -> tuple[Command, Path]:
+    """``dotnet test`` of the solution crapper covers. The name is relative, so a worker builds its copy."""
+
+    solutions = ensure_crapper().runners.csharp_solutions(root, [source])
+    if not solutions:
+        return ["dotnet", "test"], root
+    return ["dotnet", "test", solutions[0].name], solutions[0].parent
+
+
 _PLANS = {
     "clojure": _clojure_plan,
     "java": _java_plan,
@@ -286,6 +316,7 @@ _PLANS = {
     "typescript": _typescript_plan,
     "rust": _rust_plan,
     "python": _python_plan,
+    "csharp": _csharp_plan,
 }
 
 

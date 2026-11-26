@@ -6,6 +6,7 @@ Swift use the same decisions as Java, spelled in that language. TypeScript
 also mutates `??` to `||` and `?.` to `.` (removed on a call or index).
 Swift mutates `??` to `||` and wraps a boolean condition of `if`, `guard`,
 `while`, or `repeat-while` in `!()`. JavaScript files use the TypeScript rules.
+C# uses the Java set and leaves attribute arguments alone.
 """
 
 from __future__ import annotations
@@ -47,7 +48,13 @@ _BINARY_PARENTS = {
     "nil_coalescing_expression",
 }
 
-_UNARY_PARENTS = {"unary_expression", "unary_operator", "not_operator", "prefix_expression"}
+_UNARY_PARENTS = {
+    "unary_expression",
+    "unary_operator",
+    "not_operator",
+    "prefix_expression",
+    "prefix_unary_expression",
+}
 
 # Boolean conditions. A `let` binding is not one of them. `repeat-while` puts
 # the condition after the body; the others put it before.
@@ -228,13 +235,21 @@ _TYPE_NODES = {
 }
 
 
-def _in_type(node) -> bool:
+def _inside(node, types: set[str]) -> bool:
     current = node.parent
     while current is not None:
-        if current.type in _TYPE_NODES:
+        if current.type in types:
             return True
         current = current.parent
     return False
+
+
+def _in_type(node) -> bool:
+    return _inside(node, _TYPE_NODES)
+
+
+# A C# attribute argument such as `[Range(0, 1)]` must stay a constant.
+_CSHARP_SKIP = {"attribute_list"}
 
 
 def _clojure_head(node, data: bytes) -> str | None:
@@ -408,6 +423,8 @@ def _visit_swift_conditions(node, data: bytes, found: list[RawSite]) -> None:
 
 def _visit_node(node, data: bytes, language: str, found: list[RawSite]) -> None:
     if language == "typescript" and _in_type(node):
+        return
+    if language == "csharp" and _inside(node, _CSHARP_SKIP):
         return
     if language == "swift":
         _visit_swift_conditions(node, data, found)

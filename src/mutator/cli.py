@@ -68,7 +68,7 @@ def _test_directory_text() -> str:
 HELP = f"""\
 Usage: mutator [options] [path-or-filter ...]
 
-Discover mutation sites in Clojure, Java, Go, TypeScript, Rust, Python, and Swift,
+Discover mutation sites in Clojure, Java, Go, TypeScript, Rust, Python, Swift, and C#,
 run the project's tests against each one, and write `.metrics/mutate` for
 uml-viewer. Namespaces and function names are the ones crapper writes into
 `.metrics/crap.edn`.
@@ -129,7 +129,8 @@ named {_skip_directory_text()} are skipped at any depth. A test directory
 path, and so is src/test and src/tests. A deeper directory with one of those
 names, such as src/pkg/test, is mutated. Files whose names mark them as tests
 are also skipped. Swift also skips a directory whose name ends with Tests
-(Tests, AppTests) at any depth, and a file named *Tests.swift.
+(Tests, AppTests) at any depth, and a file named *Tests.swift. C# skips a
+project directory or file whose name ends with Test or Tests at any depth.
 
 The default, once a snapshot exists, reruns survivors and sites in functions
 whose text changed. Killed mutants in unchanged functions are kept.
@@ -155,9 +156,11 @@ Coverage, when it is produced, uses the same commands as crapper:
   Python       coverage.py LCOV
   Swift        swift test --enable-code-coverage, then llvm-cov JSON;
                or xcodebuild test and xcrun xccov view --report --json
+  C#           dotnet test with coverlet's XPlat Code Coverage (LCOV)
 
 SwiftPM tests are `swift test`. Xcode and iOS tests are `xcodebuild test`.
-iOS runs only on a Mac with Xcode.
+iOS runs only on a Mac with Xcode. C# tests are `dotnet test` of the nearest
+.sln or .slnx; a worker builds into its own target/dotnet.
 
 A site on a line the report does not mark as hit is uncovered and is not run.
 """
